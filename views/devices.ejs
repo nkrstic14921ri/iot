@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Device</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 60%;
+            margin: 20px auto;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 8px;
+        }
+
+        th {
+            background: #f2f2f2;
+        }
+    </style>
+</head>
+
+<body>
+    <h2 style="text-align:center">Devices</h2>
+    <table>
+        <tr>
+            <th>ID</th>
+            <th>Ime</th>
+            <th>DeviceID</th>
+        </tr>
+        <% devices.forEach(d=> { %>
+            <tr>
+                <td>
+                    <%= d.id %>
+                </td>
+                <td>
+                    <%= d.ime %>
+                </td>
+                <td>
+                    <a href="/uredjaj?device_id=<%= d.device_id %>">
+                        <%= d.device_id %>
+                    </a>
+                </td>
+            </tr>
+            <% }) %>
+    </table>
+    <a href="unos-uredjaja.html">Unesi novi uređaj</a>
+</body>
+
+</html>
