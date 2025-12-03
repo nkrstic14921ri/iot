@@ -10,7 +10,7 @@ app.use(express.urlencoded({extended:true}));
 app.set('view engine', 'ejs');
 app.set('views', './views');
 
-const pool = new Pool({ connectionString: "postgresql://sleep_smart_user:rbCcZjF45JGdA1zmN8sg7d6fWh7orhzl@dpg-d43oam9r0fns73fb8070-a.oregon-postgres.render.com/sleep_smart", ssl: { rejectUnauthorized: false } })
+const pool = new Pool({ connectionString: "postgresql://sleep_smart_rpfo_user:I99RPr3T1etJu0XxKFfbdvTPjxFCOoVp@dpg-d4o09v75r7bs73cb972g-a.oregon-postgres.render.com/sleep_smart_rpfo", ssl: { rejectUnauthorized: false } })
 
 async function createTable() {
     const query = `CREATE TABLE IF NOT EXISTS dogadjaji(
@@ -22,8 +22,8 @@ async function createTable() {
 
     const devicesQuery = `CREATE TABLE IF NOT EXISTS uredjaji(
         id SERIAL PRIMARY KEY,
-        ime VARCHAR(20) NOT NULL,
-        device_id VARCHAR(20) NOT NULL
+        ime VARCHAR(50) NOT NULL,
+        device_id VARCHAR(50) NOT NULL
     );`
 
     try {
