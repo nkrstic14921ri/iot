@@ -26,18 +26,24 @@
 <body>
     <h2 style="text-align:center">Devices</h2>
     <table>
+        <!-- Header tabele -->
         <tr>
             <th>ID</th>
             <th>Ime</th>
+            <th>Mesto</th>
             <th>DeviceID</th>
         </tr>
+        <!-- Lista uredjaja -->
         <% devices.forEach(d=> { %>
             <tr>
                 <td>
-                    <%= d.id %>
+                    <%= d._id %>
                 </td>
                 <td>
                     <%= d.ime %>
+                </td>
+                <td>
+                    <%= d.mesto %>
                 </td>
                 <td>
                     <a href="/uredjaj?device_id=<%= d.device_id %>">

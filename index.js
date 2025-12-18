@@ -1,58 +1,37 @@
 const express = require('express')
-const app = express()
 const PORT = 3000
 const path = require('path');
-const { Pool } = require('pg')
+const { MongoClient } = require("mongodb");
+const uri = 'mongodb+srv://nkrstic14921ri:wi1v1KTAN@iot.mfmfc9d.mongodb.net/?appName=iot'
+const client = new MongoClient(uri);
+const database = client.db('iot');
+const app = express()
 
 app.use(express.json())
 app.use(express.static('static'), express.static(path.join(__dirname, 'static')));
 app.use(express.urlencoded({extended:true}));
 app.set('view engine', 'ejs');
 app.set('views', './views');
+app.listen(PORT)
 
-const pool = new Pool({ connectionString: "postgresql://sleep_smart_rpfo_user:I99RPr3T1etJu0XxKFfbdvTPjxFCOoVp@dpg-d4o09v75r7bs73cb972g-a.oregon-postgres.render.com/sleep_smart_rpfo", ssl: { rejectUnauthorized: false } })
-
-async function createTable() {
-    const query = `CREATE TABLE IF NOT EXISTS dogadjaji(
-    id SERIAL PRIMARY KEY,
-    tip VARCHAR(20) NOT NULL,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    identifikatorUredjaja VARCHAR(50) NOT NULL,
-    vrednost VARCHAR(20) NOT NULL);`
-
-    const devicesQuery = `CREATE TABLE IF NOT EXISTS uredjaji(
-        id SERIAL PRIMARY KEY,
-        ime VARCHAR(50) NOT NULL,
-        device_id VARCHAR(50) NOT NULL
-    );`
-
-    try {
-        await pool.query(query)
-        await pool.query(devicesQuery)
-        console.log('Tabela kreirana')
-    } catch (error) {
-        console.log('Greska ', error)
-    }
-
-}
-
-createTable().then(() => {
-    app.listen(PORT, () => {
-        console.log(`Server pokrenut na portu ${PORT}`)
-    })
-})
-
+// Kreiranje uredjaja
 app.post('/uredjaji', async (req, res) => {
-    const { ime, device_id } = req.body
+    // Izvlacenje podataka iz tela zahteva
+    const { ime, mesto, device_id } = req.body
 
-    if (!ime || !device_id) {
+    if (!ime || !mesto || !device_id) {
         return res.status(400).send("Missing required fields");
     }
 
     try {
-        const query = "INSERT INTO uredjaji (ime, device_id) VALUES ($1, $2) RETURNING *"
-
-        const result = await pool.query(query, [ime, device_id])
+        const device = {
+            ime: req.body.ime,
+            mesto: req.body.mesto,
+            device_id: req.body.device_id,
+        }
+        const devices = database.collection("devices");
+        const result = await devices.insertOne(device);
+        // Preusmeravanje (redirect) na /uredjaji
         res.redirect('/uredjaji');
     } catch (error) {
         console.error("Greska ", error)
@@ -60,11 +39,14 @@ app.post('/uredjaji', async (req, res) => {
     }
 })
 
+// Prikaz svih uredjaja (pocetna stranica)
 app.get('/uredjaji', async (req, res) => {
     try {
-        const query = `SELECT * FROM uredjaji`
-        const result = await pool.query(query)
-        const devices = result.rows
+        // Ucitavanje uredjaja iz baze
+        const data = database.collection('devices');
+        const devices = await data.find().toArray();
+
+        // Renderovanje devices.ejs fajla i prosledjivanje svih uredjaja
         res.render('devices', { devices });
     } catch (error) {
         console.error("Greska pri citanju", error)
@@ -72,12 +54,15 @@ app.get('/uredjaji', async (req, res) => {
     }
 })
 
+
+// Detalji u oredjaju
 app.get('/uredjaj', async (req, res) => {
     try {
         const dev_id = req.query.device_id
-        const query = `SELECT * FROM uredjaji WHERE device_id = $1;`
-        const result = await pool.query(query, [dev_id])
-        const device = result.rows[0]
+        const data = database.collection('devices');
+        const query = { device_id: dev_id };
+        const device = await data.findOne(query);
+        // Renderovanje device.ejs fajla i prosledjivanje uredjaja
         res.render('device', { device });
     } catch (error) {
         console.error("Greska pri citanju", error)
@@ -85,32 +70,39 @@ app.get('/uredjaj', async (req, res) => {
     }
 })
 
+// Koriste senzori za upisivanje dogadjaja
 app.post('/dogadjaji', async (req, res) => {
-    const { tip, identifikatorUredjaja, vrednost } = req.body
+    const { event, device_id, value } = req.body
 
-    if (!tip || !identifikatorUredjaja || !vrednost) {
+    if (!event || !device_id || !value) {
         return res.status(400).send("Missing required fields");
     }
 
-    const timestamp = new Date()
     try {
-        const query = "INSERT INTO dogadjaji (tip, timestamp, identifikatorUredjaja, vrednost) VALUES ($1, $2, $3, $4) RETURNING *"
-
-        const result = await pool.query(query, [tip, timestamp, identifikatorUredjaja, vrednost])
-        res.status(201).json(result.rows[0])
+        const event = {
+            device_id: req.body.device_id,
+            event: req.body.event,
+            value: req.body.value,
+            timestamp: new Date()
+        }
+        const events = database.collection("events");
+        const result = await events.insertOne(event);
+        res.status(201).json(result)
     } catch (error) {
         console.error("Greska ", error)
         res.status(500).json({ error: "Greska pri ubacivanju!" })
     }
 })
 
-
+// Dohvatanje dogadjaja za odredjeni uredjaj
 app.get('/dogadjaji', async (req, res) => {
     try {
         const dev_id = req.query.device_id
-        const query = `SELECT * FROM dogadjaji WHERE identifikatorUredjaja = $1  AND timestamp >= NOW() - INTERVAL '1 hour'`
-        const result = await pool.query(query, [dev_id])
-        res.json(result.rows)
+        const data = database.collection('events');
+        const query = { device_id: dev_id };
+        const events = await data.find(query).toArray();
+        // Dogadjaji
+        res.json(events)
     } catch (error) {
         console.error("Greska pri citanju", error)
         res.status(500), json({ error: "Greska pri citanju!" })
