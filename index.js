@@ -3,7 +3,7 @@ const session = require("express-session");
 const PORT = 3000
 const path = require('path');
 const { MongoClient, ObjectId } = require("mongodb");
-const uri = 'mongodb+srv://nkrstic14921ri:wi1v1KTAN@iot.mfmfc9d.mongodb.net/?appName=iot'
+const uri = 'mongodb+srv://nkrstic14921ri:wi1v1KTAN@iot.mfmfc9d.mongodb.net/?appName=iot&retryWrites=true&w=majority'
 const client = new MongoClient(uri, {tls: true});
 const database = client.db('iot');
 const app = express()
