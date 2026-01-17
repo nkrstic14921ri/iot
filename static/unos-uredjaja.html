@@ -1,22 +1,97 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Unos uredjaja</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <style>
+    #reader {
+      width: 500px;
+      margin: 20px auto;
+    }
+
+    #result {
+      text-align: center;
+      font-size: 1.2em;
+      margin-top: 10px;
+    }
   </style>
 </head>
+
 <body>
-  <h2 style="text-align:center">Novi uredjaj</h2>
-  <form method="post" action="/uredjaji" style="width:300px; margin:0 auto">
-    <label for="ime">Naziv uredjaja:</label><br>
-    <input type="text" id="ime" name="ime" required><br>
-    <label for="ime">Mesto:</label><br>
-    <input type="text" id="ime" name="mesto" required><br>
-    <label for="device_id">Device ID:</label><br>
-    <input type="text" id="device_id" name="device_id" required><br><br>
-    <button>Unesi uredjaj</button>
-  </form>
-  <a href="/uredjaji">Nazad</a>
+  <div style="display: flex; flex-direction: column; justify-content: center;  align-items: center;">
+    <h2 style="text-align:center">Novi uredjaj</h2>
+    <div style="width: 40%; display: flex;  justify-content: flex-end; gap: 10px">
+      <a href="logout" class="btn btn-danger">Logout</a>
+      <a href="/uredjaji" class="btn btn-primary">Nazad</a>
+    </div><br>
+    <!-- </div> -->
+    <form method="post" action="/uredjaji" style="width:300px;" id="unosUredjajaForm">
+      <label for="ime" class="form-label">Naziv uredjaja:</label><br>
+      <input type="text" class="form-control" id="ime" name="ime" required><br>
+      <label for="mesto" class="form-label">Mesto:</label><br>
+      <input type="text" class="form-control" id="mesto" name="mesto" required><br>
+      <label for="opis" class="form-label">Opis:</label><br>
+      <input type="text" class="form-control" id="opis" name="opis" required><br>
+      <label for="device_id" class="form-label">Device ID:</label><br>
+      <input type="text" class="form-control" id="device_id" name="device_id" required><br>
+      <button id="startButton" type="button" class="btn btn-primary">Scan QR Code</button><br><br>
+      <label for="lightSlider" class="form-label">Svetlost (%): <span id="lightValue">50</span></label>
+      <input type="range" class="form-range" min="0" max="100" id="lightSlider" name="light" value="50">
+      <input type="hidden" id="lat" name="lat">
+      <input type="hidden" id="lon" name="lon">
+      <div id="reader"></div>
+
+      <button type="submit" class="btn btn-success">Unesi uredjaj</button>
+    </form>
+  </div>
 </body>
+<script>
+  lightSlider.addEventListener('input', () => {
+    lightValue.textContent = lightSlider.value;
+  });
+  const form = document.getElementById('unosUredjajaForm');
+
+  form.addEventListener('submit', function (e) {
+    console.log('test')
+    if (navigator.geolocation) {
+      e.preventDefault();
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          document.getElementById('lat').value = pos.coords.latitude;
+          document.getElementById('lon').value = pos.coords.longitude;
+          form.submit();
+        },
+        (err) => {
+          console.error('Greska geolokacije:', err);
+        }
+      );
+    } else {
+      alert('Vaš pretraživač ne podržava geolokaciju');
+    }
+  });
+</script>
+
+<script>
+  function onScanSuccess(decodedText, decodedResult) {
+    document.getElementById('device_id').value = decodedText;
+  }
+
+  function onScanFailure(error) {
+  }
+
+  function startScan() {
+    let html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader", { fps: 10, qrbox: 250 }, /* verbose= */ false);
+
+    html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+  }
+
+  document.getElementById('startButton').onclick = startScan
+</script>
+
 </html>

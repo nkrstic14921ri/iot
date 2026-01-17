@@ -4,6 +4,9 @@
 <head>
     <meta charset="utf-8">
     <title>Device</title>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         table {
             border-collapse: collapse;
@@ -20,15 +23,21 @@
         th {
             background: #f2f2f2;
         }
+
+        #map {
+            height: 50vh;
+            width: 30vw;
+        }
     </style>
     <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
     <script>
-        google.charts.load('current', { 'packages': ['corechart'] });
+        google.charts.load('current', { 'packages': ['corechart', 'table'] });
         google.charts.setOnLoadCallback(initChart);
+        google.charts.setOnLoadCallback(initTable)
 
 
         let data, chart, options;
-        let x = 0; // time or sample index
+        let messages, table;
 
 
         function initChart() {
@@ -51,7 +60,6 @@
             chart = new google.visualization.LineChart(document.getElementById('chart_div'));
 
 
-            // radi poll svake sekunde (1000ms)
             setInterval(pollData, 1000);
         }
 
@@ -60,13 +68,16 @@
             fetch('/dogadjaji?device_id=<%= device.device_id %>')
                 .then(r => r.json())
                 .then(arr => {
+
                     data.removeRows(0, data.getNumberOfRows()); // obrisi prethodno
 
                     arr.forEach(item => {
                         const time = new Date(item.timestamp);
-                        const tooltipText = item.tip;
+                        const tooltipText = item.event;
+                        if (item.event == "paljenje lampice") document.getElementById("stanje").src = "on.png"
+                        else if (item.event == "gasenje lampice") document.getElementById("stanje").src = "off.png"
 
-                        data.addRow([time, Number(item.vrednost), tooltipText]);
+                        data.addRow([time, Number(item.value), tooltipText]);
                     });
                     while (data.getNumberOfRows() > 20) {
                         data.removeRow(0); // zadrzi samo poslednjih 20 uzoraka, bez obzira koliko je uzoraka dobijeno u odgovoru
@@ -74,20 +85,193 @@
                     chart.draw(data, options);
                 });
         }
+
+        function initTable() {
+            messages = new google.visualization.DataTable();
+            messages.addColumn('string', 'Name');
+            messages.addColumn('string', 'Value');
+            messages.addColumn('datetime', 'Timestamp');
+            messages.addColumn('boolean', 'Consumed');
+
+            table = new google.visualization.Table(document.getElementById('device_messages_div'));
+            setInterval(pollMessages, 1000);
+        }
+
+        function pollMessages() {
+            fetch('/device_messages/all?device_id=<%= device.device_id %>')
+                .then(r => r.json())
+                .then(arr => {
+
+                    messages.removeRows(0, messages.getNumberOfRows()); // obrisi prethodno
+
+                    arr.forEach(item => {
+                        messages.addRow([item.name, item.value.toString(), new Date(item.timestamp), item.consumed]);
+                    });
+                    while (messages.getNumberOfRows() > 20) {
+                        messages.removeRow(0); // zadrzi samo poslednjih 20 uzoraka, bez obzira koliko je uzoraka dobijeno u odgovoru
+                    }
+                    table.draw(messages);
+                });
+        }
     </script>
 </head>
 
 <body>
-    <h2 style="text-align:center">Uredjaj</h2>
-    <p>
-        ID: <%= device._id %><br>
-        Naziv: <%= device.ime %><br>
-        Naziv: <%= device.mesto %><br>
-        DeviceID: <%= device.device_id %><br>
-    </p>
-    <h3 style="text-align:center">Registrovani dogadjaji/poruke uredjaja</h3>
-    <div id="chart_div"></div>
-    <a href="/uredjaji">Nazad</a>
+    <div style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
+    <h1 style="text-align:center">Uredjaj</h2>
+        <div style="width: 60%; display: flex;  justify-content: flex-end; gap: 10px">
+            <button class="btn btn-success" onclick="openEdit()">Izmeni</button>
+            <a href="/uredjaji" class="btn btn-primary">Nazad</a>
+            <a href="logout" class="btn btn-danger">Logout</a>
+        </div>
+        <div style="display: flex; gap: 50px; margin: 50px">
+            <div>
+                <h3> Podaci o uredjaju</h3>
+                <p>
+                    ID: <%= device._id %><br>
+                    Naziv: <%= device.ime %><br>
+                    Mesto: <%= device.mesto %><br>
+                    Opis: <%= device.opis %><br>
+                    DeviceID: <%= device.device_id %><br>
+                    Light: <%= device.light %>%<br>
+                </p>
+            </div>
+            <div><h3>Poruke ka uredjaju</h3><div id="device_messages_div"></div></div>
+            <div><h3>Stanje</h3><img src="off.png" id="stanje" style="height: 100px; width: 100px"></div>
+        </div>
+        <div style="display: flex;">
+            <div>
+                <h3>Lokacija uredjaja</h3>
+                <div id="map"></div>
+            </div>
+            <div>
+                <h3 style="text-align:center">Registrovani dogadjaji/poruke uredjaja</h3>
+                <div id="chart_div"></div>
+            </div>
+        </div>
+
+        <div class="modal fade" id="editModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <label for="ime">Ime</label>
+                        <input id="ime" class="form-control mb-2" placeholder="Ime" required>
+                        <label for="mesto">Mesto</label>
+                        <input id="mesto" class="form-control mb-2" placeholder="Mesto" required>
+                        <label for="opis">Opis</label>
+                        <input id="opis" class="form-control mb-2" placeholder="Opis" required>
+                        <input class="form-check-input" type="checkbox" id="changeLocation">
+                        <label for="changeLocation">Promeni lokaciju na trenutnu</label>
+                        <div><input class="form-check-input" type="checkbox" id="changeLight">
+                            <label for="changeLight">Paljenje svetla</label>
+                        </div>
+                        <div id="lightDiv" style="display: none;">
+                            <label for="lightSlider" class="form-label">Svetlost (%): <span
+                                    id="lightValue"><%= device.light %></span></label>
+                            <input type="range" class="form-range" min="0" max="100" id="lightSlider" value="<%= device.light %>">
+                        </div>
+                        <input id="lat" type="hidden" class="form-control mb-2" placeholder="Lat">
+                        <input id="lon" type="hidden" class="form-control mb-2" placeholder="Lon">
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-success" onclick="save()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <script>
+            var device = <%- JSON.stringify(device) %>
+            let modal = new bootstrap.Modal(document.getElementById('editModal'))
+
+            changeLight.addEventListener('change', () => {
+                if (changeLight.checked) {
+                    lightDiv.style.display = 'block'
+                } else {
+                    lightDiv.style.display = 'none';
+                }
+            });
+
+            lightSlider.addEventListener('input', () => {
+                lightValue.textContent = lightSlider.value;
+            });
+
+            function openEdit() {
+                document.getElementById('ime').value = device.ime
+                document.getElementById('opis').value = device.opis
+                document.getElementById('mesto').value = device.mesto
+                document.getElementById('lat').value = device.lat
+                document.getElementById('lon').value = device.lon
+                modal.show()
+            }
+
+            function save() {
+                const checkbox = document.getElementById('changeLocation')
+                const lightCheckBox = document.getElementById('changeLight')
+                device.ime = document.getElementById('ime').value
+                device.opis = document.getElementById('opis').value
+                device.mesto = document.getElementById('mesto').value
+
+                if (checkbox.checked) {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                device.lat = pos.coords.latitude;
+                                device.lon = pos.coords.longitude;
+                            },
+                            (err) => {
+                                console.error('Greska geolokacije:', err);
+                            }
+                        );
+                    } else {
+                        alert('Vaš pretraživač ne podržava geolokaciju');
+                    }
+                }
+
+                if (changeLight.checked) {
+                    device.light = parseInt(lightSlider.value);
+                    console.log(device.light + " svetlo")
+                }
+
+                fetch(`/uredjaj`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(device)
+                })
+                    .then(res => res.json())
+                    .then(res => {
+                        console.log(res)
+                        window.location.reload()
+                        console.log(device.mesto)
+
+                        modal.hide()
+                    })
+                    .catch(err => {
+                        console.error(err)
+                        alert("Greška prilikom čuvanja")
+                    })
+            }
+        </script>
+        <script>
+            const map = L.map('map').setView([44.815313, 20.459812], 18);
+
+            L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            var d = <%- JSON.stringify(device) %>
+                L.marker([d.lat, d.lon]).addTo(map)
+                    .bindPopup(d.ime)
+                    .openPopup()
+
+        </script>
 </body>
 
 </html>
